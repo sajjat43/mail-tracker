@@ -1,0 +1,16 @@
+{
+  "name": "gmail-node",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node index.js"
+  },
+  "author": "sajjat",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.8.4",
+    "dotenv": "^16.4.7",
+    "qs": "^6.14.0"
+  }
+}
