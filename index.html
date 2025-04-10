@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gmail Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f6f8fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .search-box {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .search-input {
+            width: 70%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        .button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .button:hover {
+            background-color: #1557b0;
+        }
+        .email-list {
+            display: grid;
+            gap: 20px;
+        }
+        .email-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .email-header {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .email-subject {
+            font-size: 18px;
+            font-weight: bold;
+            color: #202124;
+            margin: 0 0 10px 0;
+        }
+        .email-meta {
+            color: #5f6368;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+        .email-body {
+            color: #202124;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-size: 18px;
+            color: #5f6368;
+        }
+        #error-message {
+            color: #d93025;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="search-box">
+            <input type="text" id="search-input" class="search-input" placeholder="Search emails...">
+            <button onclick="searchEmails()" class="button">Search</button>
+            <button onclick="getAllEmails()" class="button">Get All Emails</button>
+            <div id="error-message"></div>
+        </div>
+        <div id="email-list" class="email-list">
+            <!-- Emails will be displayed here -->
+        </div>
+    </div>
+
+    <script>
+        function showLoading() {
+            document.getElementById('email-list').innerHTML = '<div class="loading">Loading emails...</div>';
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function displayEmails(emails) {
+            const emailList = document.getElementById('email-list');
+            if (!emails || emails.length === 0) {
+                emailList.innerHTML = '<div class="email-card">No emails found</div>';
+                return;
+            }
+
+            emailList.innerHTML = emails.map(email => `
+                <div class="email-card">
+                    <div class="email-header">
+                        <div class="email-subject">${email.subject}</div>
+                        <div class="email-meta">From: ${email.from}</div>
+                        <div class="email-meta">Date: ${email.date}</div>
+                    </div>
+                    <div class="email-body">${email.body}</div>
+                </div>
+            `).join('');
+        }
+
+        async function searchEmails() {
+            const searchTerm = document.getElementById('search-input').value.trim();
+            if (!searchTerm) {
+                showError('Please enter a search term');
+                return;
+            }
+
+            showLoading();
+            try {
+                const response = await fetch('/search-emails', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ searchTerm })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch emails');
+                }
+
+                const emails = await response.json();
+                displayEmails(emails);
+            } catch (error) {
+                showError('Error fetching emails: ' + error.message);
+            }
+        }
+
+        async function getAllEmails() {
+            showLoading();
+            try {
+                const response = await fetch('/all-emails');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch emails');
+                }
+
+                const emails = await response.json();
+                displayEmails(emails);
+            } catch (error) {
+                showError('Error fetching emails: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html> 

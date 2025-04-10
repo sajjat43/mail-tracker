@@ -1,16 +1,16 @@
 {
-  "name": "gmail-node",
+  "name": "gmail-viewer",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "Gmail API Email Viewer",
+  "main": "server.js",
   "scripts": {
-    "dev": "node index.js"
+    "start": "node server.js"
   },
   "author": "sajjat",
   "license": "ISC",
-  "description": "",
   "dependencies": {
-    "axios": "^1.8.4",
-    "dotenv": "^16.4.7",
-    "qs": "^6.14.0"
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2"
   }
 }
