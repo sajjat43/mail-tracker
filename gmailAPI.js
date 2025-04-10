@@ -357,5 +357,92 @@ class GmailAPI {
 
         return results;
     };
+
+    getUnreadMails = async () => {
+        try {
+            const accessToken = await this.getAccessToken();
+            const config = {
+                method: 'get',
+                url: 'https://gmail.googleapis.com/gmail/v1/users/me/messages/?q=is:unread',
+                headers: { 
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            };
+
+            const response = await axios.request(config);
+            if (!response.data.messages || response.data.messages.length === 0) {
+                console.log("No unread messages found");
+                return [];
+            }
+
+            console.log(`Found ${response.data.messages.length} unread messages`);
+            const messages = [];
+
+            for (const msg of response.data.messages) {
+                const messageConfig = {
+                    method: 'get',
+                    url: `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`,
+                    headers: { 
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                };
+
+                try {
+                    const messageResponse = await axios.request(messageConfig);
+                    const messageData = messageResponse.data;
+                    let subject = '';
+                    let from = '';
+                    let date = '';
+                    let body = '';
+
+                    // Get headers
+                    if (messageData.payload && messageData.payload.headers) {
+                        subject = messageData.payload.headers.find(header => header.name.toLowerCase() === 'subject')?.value || 'No Subject';
+                        from = messageData.payload.headers.find(header => header.name.toLowerCase() === 'from')?.value || 'Unknown Sender';
+                        date = messageData.payload.headers.find(header => header.name.toLowerCase() === 'date')?.value || '';
+                    }
+
+                    // Get body
+                    if (messageData.payload) {
+                        if (messageData.payload.parts && messageData.payload.parts.length > 0) {
+                            // Handle multipart message
+                            const textPart = messageData.payload.parts.find(part => part.mimeType === 'text/plain');
+                            if (textPart && textPart.body.data) {
+                                body = Buffer.from(textPart.body.data, 'base64').toString('utf-8');
+                            }
+                        } else if (messageData.payload.body && messageData.payload.body.data) {
+                            // Handle simple message
+                            body = Buffer.from(messageData.payload.body.data, 'base64').toString('utf-8');
+                        }
+                    }
+
+                    messages.push({
+                        id: msg.id,
+                        threadId: msg.threadId,
+                        subject,
+                        from,
+                        date,
+                        body,
+                        unread: true
+                    });
+
+                    // Log each message as we process it
+                    console.log('\n-------------------');
+                    console.log('Subject:', subject);
+                    console.log('From:', from);
+                    console.log('Date:', date);
+                    console.log('-------------------\n');
+
+                } catch (error) {
+                    console.log(`Error fetching message ${msg.id}:`, error.message);
+                }
+            }
+
+            return messages;
+        } catch (error) {
+            console.log('Error fetching unread messages:', error.message);
+            return [];
+        }
+    };
 }
 module.exports = GmailAPI;

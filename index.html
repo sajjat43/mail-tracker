@@ -38,9 +38,16 @@
             border: none;
             border-radius: 4px;
             cursor: pointer;
+            margin-right: 10px;
         }
         .button:hover {
             background-color: #1557b0;
+        }
+        .button.unread {
+            background-color: #d93025;
+        }
+        .button.unread:hover {
+            background-color: #b92318;
         }
         .email-list {
             display: grid;
@@ -51,6 +58,9 @@
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .email-card.unread {
+            border-left: 4px solid #d93025;
         }
         .email-header {
             margin-bottom: 15px;
@@ -81,10 +91,23 @@
         }
         #error-message {
             color: #d93025;
-            padding: 10px;
+            padding: 15px;
             margin: 10px 0;
             border-radius: 4px;
             display: none;
+            background-color: #fce8e6;
+            border: 1px solid #d93025;
+        }
+        .status-message {
+            text-align: center;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            background-color: #e8f0fe;
+            color: #1a73e8;
+        }
+        .button-group {
+            margin-top: 10px;
         }
     </style>
 </head>
@@ -93,7 +116,10 @@
         <div class="search-box">
             <input type="text" id="search-input" class="search-input" placeholder="Search emails...">
             <button onclick="searchEmails()" class="button">Search</button>
-            <button onclick="getAllEmails()" class="button">Get All Emails</button>
+            <div class="button-group">
+                <button onclick="getAllEmails()" class="button">All Emails</button>
+                <button onclick="getUnreadEmails()" class="button unread">Unread Emails</button>
+            </div>
             <div id="error-message"></div>
         </div>
         <div id="email-list" class="email-list">
@@ -102,13 +128,18 @@
     </div>
 
     <script>
-        function showLoading() {
-            document.getElementById('email-list').innerHTML = '<div class="loading">Loading emails...</div>';
+        const API_BASE_URL = window.location.origin; // Gets the base URL dynamically
+
+        function showLoading(message = 'Loading emails...') {
+            document.getElementById('email-list').innerHTML = `
+                <div class="loading">${message}</div>
+            `;
         }
 
-        function showError(message) {
+        function showError(error) {
             const errorDiv = document.getElementById('error-message');
-            errorDiv.textContent = message;
+            const errorMessage = error.details ? `${error.error}: ${error.details}` : error.message || error;
+            errorDiv.textContent = errorMessage;
             errorDiv.style.display = 'block';
             setTimeout(() => {
                 errorDiv.style.display = 'none';
@@ -122,60 +153,96 @@
                 return;
             }
 
-            emailList.innerHTML = emails.map(email => `
-                <div class="email-card">
+            const statusMessage = `<div class="status-message">Found ${emails.length} email${emails.length === 1 ? '' : 's'}</div>`;
+            
+            const emailsHtml = emails.map(email => `
+                <div class="email-card ${email.unread ? 'unread' : ''}">
                     <div class="email-header">
-                        <div class="email-subject">${email.subject}</div>
-                        <div class="email-meta">From: ${email.from}</div>
-                        <div class="email-meta">Date: ${email.date}</div>
+                        <div class="email-subject">${email.subject || 'No Subject'}</div>
+                        <div class="email-meta">From: ${email.from || 'Unknown Sender'}</div>
+                        <div class="email-meta">Date: ${email.date || 'No Date'}</div>
                     </div>
-                    <div class="email-body">${email.body}</div>
+                    <div class="email-body">${email.body || 'No Content'}</div>
                 </div>
             `).join('');
+
+            emailList.innerHTML = statusMessage + emailsHtml;
+        }
+
+        async function makeRequest(endpoint, method = 'GET', body = null) {
+            try {
+                const options = {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                };
+
+                if (body) {
+                    options.body = JSON.stringify(body);
+                }
+
+                console.log(`Making ${method} request to ${endpoint}`);
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw data; // Server will send error object
+                }
+                
+                return data;
+            } catch (error) {
+                console.error('Request error:', error);
+                throw error.error ? error : { error: 'Failed to fetch data from server', details: error.message };
+            }
         }
 
         async function searchEmails() {
             const searchTerm = document.getElementById('search-input').value.trim();
             if (!searchTerm) {
-                showError('Please enter a search term');
+                showError({ error: 'Validation Error', details: 'Please enter a search term' });
                 return;
             }
 
-            showLoading();
+            showLoading(`Searching for "${searchTerm}"...`);
             try {
-                const response = await fetch('/search-emails', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ searchTerm })
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Failed to fetch emails');
-                }
-
-                const emails = await response.json();
+                const emails = await makeRequest('/search-emails', 'POST', { searchTerm });
                 displayEmails(emails);
             } catch (error) {
-                showError('Error fetching emails: ' + error.message);
+                showError(error);
             }
         }
 
         async function getAllEmails() {
-            showLoading();
+            showLoading('Fetching all emails...');
             try {
-                const response = await fetch('/all-emails');
-                if (!response.ok) {
-                    throw new Error('Failed to fetch emails');
-                }
-
-                const emails = await response.json();
+                const emails = await makeRequest('/all-emails');
                 displayEmails(emails);
             } catch (error) {
-                showError('Error fetching emails: ' + error.message);
+                showError(error);
             }
         }
+
+        async function getUnreadEmails() {
+            showLoading('Fetching unread emails...');
+            try {
+                const emails = await makeRequest('/unread-emails');
+                displayEmails(emails);
+            } catch (error) {
+                showError(error);
+            }
+        }
+
+        // Add event listener for Enter key in search input
+        document.getElementById('search-input').addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                searchEmails();
+            }
+        });
+
+        // Initial load - get all emails
+        getAllEmails();
     </script>
 </body>
 </html> 
