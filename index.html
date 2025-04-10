@@ -49,6 +49,11 @@
         .button.unread:hover {
             background-color: #b92318;
         }
+        .button-group {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
         .email-list {
             display: grid;
             gap: 20px;
@@ -106,9 +111,6 @@
             background-color: #e8f0fe;
             color: #1a73e8;
         }
-        .button-group {
-            margin-top: 10px;
-        }
     </style>
 </head>
 <body>
@@ -118,7 +120,7 @@
             <button onclick="searchEmails()" class="button">Search</button>
             <div class="button-group">
                 <button onclick="getAllEmails()" class="button">All Emails</button>
-                <button onclick="getUnreadEmails()" class="button unread">Unread Emails</button>
+                <button onclick="getUnreadEmails()" class="button unread">Unread Messages</button>
             </div>
             <div id="error-message"></div>
         </div>
@@ -128,7 +130,7 @@
     </div>
 
     <script>
-        const API_BASE_URL = window.location.origin; // Gets the base URL dynamically
+        const API_BASE_URL = window.location.origin;
 
         function showLoading(message = 'Loading emails...') {
             document.getElementById('email-list').innerHTML = `
@@ -188,7 +190,7 @@
                 const data = await response.json();
                 
                 if (!response.ok) {
-                    throw data; // Server will send error object
+                    throw data;
                 }
                 
                 return data;
@@ -225,7 +227,7 @@
         }
 
         async function getUnreadEmails() {
-            showLoading('Fetching unread emails...');
+            showLoading('Fetching unread messages...');
             try {
                 const emails = await makeRequest('/unread-emails');
                 displayEmails(emails);
@@ -241,7 +243,7 @@
             }
         });
 
-        // Initial load - get all emails
+        // Initial load
         getAllEmails();
     </script>
 </body>
