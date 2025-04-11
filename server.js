@@ -116,6 +116,27 @@ app.get('/draft-emails', async (req, res) => {
     }
 });
 
+// API endpoint to get important emails
+app.get('/important-emails', async (req, res) => {
+    console.log('Received request for important emails');
+    try {
+        console.log('Calling Gmail API to fetch important emails...');
+        const importantEmails = await gmail.getImportantMails();
+        
+        // Ensure we always return an array
+        const response = Array.isArray(importantEmails) ? importantEmails : [];
+        
+        console.log(`Sending ${response.length} important emails to client`);
+        res.json(response);
+    } catch (error) {
+        console.error('Error in /important-emails endpoint:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch important emails',
+            details: error.message
+        });
+    }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error('Global error handler:', err);

@@ -685,5 +685,80 @@ class GmailAPI {
             throw error;
         }
     }
+
+    async getImportantMails() {
+        try {
+            const accessToken = await this.getAccessToken();
+            console.log('Fetching important emails...');
+
+            const config = {
+                method: 'get',
+                url: 'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=is:important',
+                headers: { 
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            };
+
+            const response = await axios.request(config);
+            if (!response.data.messages || response.data.messages.length === 0) {
+                console.log("No important messages found");
+                return [];
+            }
+
+            console.log(`Found ${response.data.messages.length} important messages`);
+
+            // Fetch full details for each message
+            const messagePromises = response.data.messages.map(async (message) => {
+                const messageConfig = {
+                    method: 'get',
+                    url: `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}`,
+                    headers: { 
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                };
+
+                try {
+                    const messageResponse = await axios.request(messageConfig);
+                    const messageData = messageResponse.data;
+                    const headers = {};
+                    messageData.payload.headers.forEach(header => {
+                        headers[header.name.toLowerCase()] = header.value;
+                    });
+
+                    // Extract body
+                    let body = '';
+                    if (messageData.payload.parts) {
+                        const textPart = messageData.payload.parts.find(part => part.mimeType === 'text/plain');
+                        if (textPart && textPart.body && textPart.body.data) {
+                            body = Buffer.from(textPart.body.data, 'base64').toString('utf-8');
+                        }
+                    } else if (messageData.payload.body && messageData.payload.body.data) {
+                        body = Buffer.from(messageData.payload.body.data, 'base64').toString('utf-8');
+                    }
+
+                    return {
+                        id: message.id,
+                        subject: headers.subject || 'No Subject',
+                        from: headers.from || 'No Sender',
+                        to: headers.to || 'No Recipient',
+                        date: headers.date || 'No Date',
+                        body: body || 'No Content',
+                        isImportant: true
+                    };
+                } catch (error) {
+                    console.warn(`Failed to fetch message ${message.id}:`, error.message);
+                    return null;
+                }
+            });
+
+            const messages = (await Promise.all(messagePromises)).filter(message => message !== null);
+            console.log(`Successfully processed ${messages.length} important messages`);
+            return messages;
+
+        } catch (error) {
+            console.error('Error fetching important messages:', error);
+            throw error;
+        }
+    }
 }
 module.exports = GmailAPI;
