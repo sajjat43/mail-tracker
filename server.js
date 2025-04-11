@@ -95,6 +95,27 @@ app.get('/attachment-emails', async (req, res) => {
     }
 });
 
+// API endpoint to get draft emails
+app.get('/draft-emails', async (req, res) => {
+    console.log('Received request for draft emails');
+    try {
+        console.log('Calling Gmail API to fetch drafts...');
+        const drafts = await gmail.getDraftMails();
+        
+        // Ensure we always return an array
+        const response = Array.isArray(drafts) ? drafts : [];
+        
+        console.log(`Sending ${response.length} drafts to client`);
+        res.json(response);
+    } catch (error) {
+        console.error('Error in /draft-emails endpoint:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch draft emails',
+            details: error.message
+        });
+    }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error('Global error handler:', err);
@@ -104,6 +125,31 @@ app.use((err, req, res, next) => {
     });
 });
 
-app.listen(port, () => {
+// Improved error handling for server startup
+const server = app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
+}).on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+        console.error(`Port ${port} is already in use. Please try a different port or stop the existing server.`);
+    } else {
+        console.error('Failed to start server:', error);
+    }
+    process.exit(1);
+});
+
+// Handle graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('Received SIGTERM. Performing graceful shutdown...');
+    server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+    });
+});
+
+process.on('SIGINT', () => {
+    console.log('Received SIGINT. Performing graceful shutdown...');
+    server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+    });
 }); 

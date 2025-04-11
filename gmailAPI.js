@@ -540,5 +540,150 @@ class GmailAPI {
             return [];
         }
     };
+
+    async getDraftMails() {
+        try {
+            console.log('Starting to fetch draft emails...');
+            const accessToken = await this.getAccessToken();
+            
+            if (!accessToken) {
+                console.error('Failed to get access token');
+                throw new Error('Access token not available');
+            }
+            
+            console.log('Access token obtained, fetching drafts list...');
+
+            const config = {
+                method: 'get',
+                url: 'https://gmail.googleapis.com/gmail/v1/users/me/drafts',
+                headers: { 
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Accept': 'application/json'
+                }
+            };
+
+            console.log('Making request to Gmail API for drafts...');
+            const response = await axios.request(config);
+            
+            console.log('Raw API Response:', JSON.stringify(response.data, null, 2));
+
+            if (!response.data) {
+                console.error('No data received from Gmail API');
+                return [];
+            }
+
+            if (!response.data.drafts || response.data.drafts.length === 0) {
+                console.log("No draft messages found");
+                return [];
+            }
+
+            console.log(`Found ${response.data.drafts.length} drafts, fetching details...`);
+
+            // Fetch full details for each draft
+            const draftPromises = response.data.drafts.map(async (draft) => {
+                console.log(`Fetching details for draft ID: ${draft.id}`);
+                const draftConfig = {
+                    method: 'get',
+                    url: `https://gmail.googleapis.com/gmail/v1/users/me/drafts/${draft.id}`,
+                    headers: { 
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Accept': 'application/json'
+                    }
+                };
+
+                try {
+                    const draftResponse = await axios.request(draftConfig);
+                    console.log(`Received draft details for ID ${draft.id}`);
+                    
+                    if (!draftResponse.data || !draftResponse.data.message) {
+                        console.warn(`Invalid draft data received for ID ${draft.id}`);
+                        return null;
+                    }
+
+                    const message = draftResponse.data.message;
+
+                    // Extract headers
+                    const headers = {};
+                    if (message.payload && message.payload.headers) {
+                        message.payload.headers.forEach(header => {
+                            headers[header.name.toLowerCase()] = header.value;
+                        });
+                    } else {
+                        console.warn(`No headers found in draft ${draft.id}`);
+                    }
+
+                    // Extract body
+                    let body = '';
+                    if (message.payload) {
+                        if (message.payload.parts) {
+                            const textPart = message.payload.parts.find(part => part.mimeType === 'text/plain');
+                            if (textPart && textPart.body && textPart.body.data) {
+                                body = Buffer.from(textPart.body.data, 'base64').toString('utf-8');
+                                console.log(`Found text body in draft ${draft.id}`);
+                            } else {
+                                console.log(`No text body found in multipart draft ${draft.id}`);
+                            }
+                        } else if (message.payload.body && message.payload.body.data) {
+                            body = Buffer.from(message.payload.body.data, 'base64').toString('utf-8');
+                            console.log(`Found simple body in draft ${draft.id}`);
+                        } else {
+                            console.log(`No body data found in draft ${draft.id}`);
+                        }
+                    } else {
+                        console.warn(`No payload found in draft ${draft.id}`);
+                    }
+
+                    const draftData = {
+                        id: draft.id,
+                        subject: headers.subject || 'No Subject',
+                        from: headers.from || 'No Sender',
+                        to: headers.to || 'No Recipient',
+                        date: headers.date || 'No Date',
+                        body: body || 'No Content',
+                        isDraft: true
+                    };
+
+                    console.log('Processed draft data:', {
+                        id: draftData.id,
+                        subject: draftData.subject,
+                        from: draftData.from,
+                        hasBody: !!draftData.body
+                    });
+
+                    return draftData;
+                } catch (error) {
+                    console.error(`Error fetching draft ${draft.id}:`, error.message);
+                    if (error.response) {
+                        console.error('Error response:', {
+                            status: error.response.status,
+                            data: error.response.data
+                        });
+                    }
+                    return null;
+                }
+            });
+
+            const drafts = (await Promise.all(draftPromises)).filter(draft => draft !== null);
+            console.log(`Successfully processed ${drafts.length} drafts`);
+            
+            if (drafts.length === 0) {
+                console.log('No drafts were successfully processed');
+            } else {
+                console.log('Draft IDs processed:', drafts.map(d => d.id).join(', '));
+            }
+
+            return drafts;
+
+        } catch (error) {
+            console.error('Error in getDraftMails:', error.message);
+            if (error.response) {
+                console.error('Error response:', {
+                    status: error.response.status,
+                    data: error.response.data
+                });
+            }
+            throw error;
+        }
+    }
 }
 module.exports = GmailAPI;
