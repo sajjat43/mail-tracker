@@ -444,5 +444,101 @@ class GmailAPI {
             return [];
         }
     };
+
+    getEmailsWithAttachments = async () => {
+        try {
+            const accessToken = await this.getAccessToken();
+            const config = {
+                method: 'get',
+                url: 'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=has:attachment',
+                headers: { 
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            };
+
+            const response = await axios.request(config);
+            if (!response.data.messages || response.data.messages.length === 0) {
+                console.log("No messages with attachments found");
+                return [];
+            }
+
+            console.log(`Found ${response.data.messages.length} messages with attachments`);
+            const messages = [];
+
+            for (const msg of response.data.messages) {
+                const messageConfig = {
+                    method: 'get',
+                    url: `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`,
+                    headers: { 
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                };
+
+                try {
+                    const messageResponse = await axios.request(messageConfig);
+                    const messageData = messageResponse.data;
+                    let subject = '';
+                    let from = '';
+                    let date = '';
+                    let body = '';
+                    let attachments = [];
+
+                    // Get headers
+                    if (messageData.payload && messageData.payload.headers) {
+                        subject = messageData.payload.headers.find(header => header.name.toLowerCase() === 'subject')?.value || 'No Subject';
+                        from = messageData.payload.headers.find(header => header.name.toLowerCase() === 'from')?.value || 'Unknown Sender';
+                        date = messageData.payload.headers.find(header => header.name.toLowerCase() === 'date')?.value || '';
+                    }
+
+                    // Get body and attachments
+                    if (messageData.payload) {
+                        // Function to process parts recursively
+                        const processParts = (part) => {
+                            if (part.mimeType === 'text/plain' && part.body.data) {
+                                body = Buffer.from(part.body.data, 'base64').toString('utf-8');
+                            } else if (part.mimeType && part.mimeType.includes('application/') && part.body.attachmentId) {
+                                attachments.push({
+                                    id: part.body.attachmentId,
+                                    filename: part.filename,
+                                    mimeType: part.mimeType,
+                                    size: part.body.size
+                                });
+                            }
+                            
+                            // Process nested parts
+                            if (part.parts) {
+                                part.parts.forEach(processParts);
+                            }
+                        };
+
+                        if (messageData.payload.parts) {
+                            messageData.payload.parts.forEach(processParts);
+                        } else if (messageData.payload.body && messageData.payload.body.data) {
+                            body = Buffer.from(messageData.payload.body.data, 'base64').toString('utf-8');
+                        }
+                    }
+
+                    messages.push({
+                        id: msg.id,
+                        threadId: msg.threadId,
+                        subject,
+                        from,
+                        date,
+                        body,
+                        attachments,
+                        hasAttachments: attachments.length > 0
+                    });
+
+                } catch (error) {
+                    console.log(`Error fetching message ${msg.id}:`, error.message);
+                }
+            }
+
+            return messages;
+        } catch (error) {
+            console.log('Error fetching messages with attachments:', error.message);
+            return [];
+        }
+    };
 }
 module.exports = GmailAPI;

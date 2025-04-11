@@ -254,6 +254,47 @@
                 padding: 16px;
             }
         }
+
+        .attachment-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #e8eaed;
+            color: #5f6368;
+            font-size: 14px;
+        }
+
+        .attachment-icon {
+            width: 20px;
+            height: 20px;
+            fill: #5f6368;
+        }
+
+        .attachment-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .attachment-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background-color: #f1f3f4;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .button.attachment {
+            background-color: #188038;
+        }
+
+        .button.attachment:hover {
+            background-color: #137333;
+        }
     </style>
 </head>
 <body>
@@ -286,6 +327,12 @@
                         <path d="M21.99 8c0-.72-.37-1.35-.94-1.7L12 1 2.95 6.3C2.38 6.65 2 7.28 2 8v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2l-.01-10zM12 13L3.74 7.84 12 3l8.26 4.84L12 13z"/>
                     </svg>
                     Unread Messages
+                </button>
+                <button onclick="getAttachmentEmails()" class="button attachment">
+                    <svg viewBox="0 0 24 24" width="20" height="20">
+                        <path d="M2 12.5C2 9.46 4.46 7 7.5 7H18c2.21 0 4 1.79 4 4s-1.79 4-4 4H9.5C8.12 15 7 13.88 7 12.5S8.12 10 9.5 10H17v2H9.41c-.55 0-.55 1 0 1H18c1.1 0 2-.9 2-2s-.9-2-2-2H7.5C5.57 9 4 10.57 4 12.5S5.57 16 7.5 16H17v2H7.5C4.46 18 2 15.54 2 12.5z"/>
+                    </svg>
+                    With Attachments
                 </button>
             </div>
             <div id="error-message"></div>
@@ -356,10 +403,32 @@
                         </div>
                     </div>
                     <div class="email-body">${email.body || 'No Content'}</div>
+                    ${email.attachments && email.attachments.length > 0 ? `
+                        <div class="attachment-info">
+                            <svg class="attachment-icon" viewBox="0 0 24 24">
+                                <path d="M2 12.5C2 9.46 4.46 7 7.5 7H18c2.21 0 4 1.79 4 4s-1.79 4-4 4H9.5C8.12 15 7 13.88 7 12.5S8.12 10 9.5 10H17v2H9.41c-.55 0-.55 1 0 1H18c1.1 0 2-.9 2-2s-.9-2-2-2H7.5C5.57 9 4 10.57 4 12.5S5.57 16 7.5 16H17v2H7.5C4.46 18 2 15.54 2 12.5z"/>
+                            </svg>
+                            <div class="attachment-list">
+                                ${email.attachments.map(attachment => `
+                                    <span class="attachment-item">
+                                        ${attachment.filename} (${formatFileSize(attachment.size)})
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
                 </div>
             `).join('');
 
             emailList.innerHTML = statusMessage + emailsHtml;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
         }
 
         async function makeRequest(endpoint, method = 'GET', body = null) {
@@ -368,7 +437,9 @@
                     method,
                     headers: {
                         'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     },
+                    credentials: 'include'
                 };
 
                 if (body) {
@@ -377,6 +448,12 @@
 
                 console.log(`Making ${method} request to ${endpoint}`);
                 const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+                
+                // Check if response is JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    throw new Error('Server returned non-JSON response. Please check server configuration.');
+                }
                 
                 const data = await response.json();
                 
@@ -387,7 +464,16 @@
                 return data;
             } catch (error) {
                 console.error('Request error:', error);
-                throw error.error ? error : { error: 'Failed to fetch data from server', details: error.message };
+                if (error instanceof SyntaxError) {
+                    throw { 
+                        error: 'Invalid Server Response', 
+                        details: 'Server returned invalid JSON. Please check server configuration.' 
+                    };
+                }
+                throw error.error ? error : { 
+                    error: 'Failed to fetch data from server', 
+                    details: error.message 
+                };
             }
         }
 
@@ -421,6 +507,16 @@
             showLoading('Fetching unread messages...');
             try {
                 const emails = await makeRequest('/unread-emails');
+                displayEmails(emails);
+            } catch (error) {
+                showError(error);
+            }
+        }
+
+        async function getAttachmentEmails() {
+            showLoading('Fetching emails with attachments...');
+            try {
+                const emails = await makeRequest('/attachment-emails');
                 displayEmails(emails);
             } catch (error) {
                 showError(error);

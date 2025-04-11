@@ -6,8 +6,16 @@ const cors = require('cors');
 const app = express();
 const port = 3000;
 
+// CORS configuration
+const corsOptions = {
+    origin: '*', // Allow all origins
+    methods: ['GET', 'POST'], // Allow both GET and POST methods
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
@@ -66,6 +74,22 @@ app.get('/unread-emails', async (req, res) => {
         console.error('Error in /unread-emails:', error);
         res.status(500).json({ 
             error: 'Failed to fetch unread emails',
+            details: error.message 
+        });
+    }
+});
+
+// API endpoint to get emails with attachments
+app.get('/attachment-emails', async (req, res) => {
+    try {
+        console.log('Fetching emails with attachments');
+        const emails = await gmail.getEmailsWithAttachments();
+        console.log(`Found ${emails.length} emails with attachments`);
+        res.json(emails);
+    } catch (error) {
+        console.error('Error fetching emails with attachments:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch emails with attachments',
             details: error.message 
         });
     }
