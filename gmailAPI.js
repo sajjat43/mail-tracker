@@ -760,5 +760,260 @@ class GmailAPI {
             throw error;
         }
     }
+
+    async getStarredMails() {
+        try {
+            const accessToken = await this.getAccessToken();
+            console.log('Fetching starred emails...');
+
+            const config = {
+                method: 'get',
+                url: 'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=is:starred',
+                headers: { 
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            };
+
+            const response = await axios.request(config);
+            if (!response.data.messages || response.data.messages.length === 0) {
+                console.log("No starred messages found");
+                return [];
+            }
+
+            console.log(`Found ${response.data.messages.length} starred messages`);
+            return await this.fetchMessageDetails(response.data.messages, accessToken);
+        } catch (error) {
+            console.error('Error fetching starred messages:', error);
+            throw error;
+        }
+    }
+
+    async getSnoozedMails() {
+        try {
+            const accessToken = await this.getAccessToken();
+            console.log('Fetching snoozed emails...');
+
+            const config = {
+                method: 'get',
+                url: 'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=is:snoozed',
+                headers: { 
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            };
+
+            const response = await axios.request(config);
+            if (!response.data.messages || response.data.messages.length === 0) {
+                console.log("No snoozed messages found");
+                return [];
+            }
+
+            console.log(`Found ${response.data.messages.length} snoozed messages`);
+            return await this.fetchMessageDetails(response.data.messages, accessToken);
+        } catch (error) {
+            console.error('Error fetching snoozed messages:', error);
+            throw error;
+        }
+    }
+
+    async getChatMails() {
+        try {
+            const accessToken = await this.getAccessToken();
+            console.log('Fetching chat emails...');
+
+            const config = {
+                method: 'get',
+                url: 'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=category:chat',
+                headers: { 
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            };
+
+            const response = await axios.request(config);
+            if (!response.data.messages || response.data.messages.length === 0) {
+                console.log("No chat messages found");
+                return [];
+            }
+
+            console.log(`Found ${response.data.messages.length} chat messages`);
+
+            // Fetch full details for each message
+            const messagePromises = response.data.messages.map(async (message) => {
+                const messageConfig = {
+                    method: 'get',
+                    url: `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}`,
+                    headers: { 
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                };
+
+                try {
+                    const messageResponse = await axios.request(messageConfig);
+                    const messageData = messageResponse.data;
+                    const headers = {};
+                    messageData.payload.headers.forEach(header => {
+                        headers[header.name.toLowerCase()] = header.value;
+                    });
+
+                    // Extract body
+                    let body = '';
+                    if (messageData.payload.parts) {
+                        const textPart = messageData.payload.parts.find(part => part.mimeType === 'text/plain');
+                        if (textPart && textPart.body && textPart.body.data) {
+                            body = Buffer.from(textPart.body.data, 'base64').toString('utf-8');
+                        }
+                    } else if (messageData.payload.body && messageData.payload.body.data) {
+                        body = Buffer.from(messageData.payload.body.data, 'base64').toString('utf-8');
+                    }
+
+                    return {
+                        id: message.id,
+                        subject: headers.subject || 'No Subject',
+                        from: headers.from || 'No Sender',
+                        to: headers.to || 'No Recipient',
+                        date: headers.date || 'No Date',
+                        body: body || 'No Content',
+                        isChat: true
+                    };
+                } catch (error) {
+                    console.warn(`Failed to fetch message ${message.id}:`, error.message);
+                    return null;
+                }
+            });
+
+            const messages = (await Promise.all(messagePromises)).filter(message => message !== null);
+            console.log(`Successfully processed ${messages.length} chat messages`);
+            return messages;
+
+        } catch (error) {
+            console.error('Error fetching chat messages:', error);
+            throw error;
+        }
+    }
+
+    async getScheduledMails() {
+        try {
+            const accessToken = await this.getAccessToken();
+            console.log('Fetching scheduled emails...');
+
+            const config = {
+                method: 'get',
+                url: 'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=is:scheduled',
+                headers: { 
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            };
+
+            const response = await axios.request(config);
+            if (!response.data.messages || response.data.messages.length === 0) {
+                console.log("No scheduled messages found");
+                return [];
+            }
+
+            console.log(`Found ${response.data.messages.length} scheduled messages`);
+            return await this.fetchMessageDetails(response.data.messages, accessToken);
+        } catch (error) {
+            console.error('Error fetching scheduled messages:', error);
+            throw error;
+        }
+    }
+
+    async getSpamMails() {
+        try {
+            const accessToken = await this.getAccessToken();
+            console.log('Fetching spam emails...');
+
+            const config = {
+                method: 'get',
+                url: 'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=is:spam',
+                headers: { 
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            };
+
+            const response = await axios.request(config);
+            if (!response.data.messages || response.data.messages.length === 0) {
+                console.log("No spam messages found");
+                return [];
+            }
+
+            console.log(`Found ${response.data.messages.length} spam messages`);
+            return await this.fetchMessageDetails(response.data.messages, accessToken);
+        } catch (error) {
+            console.error('Error fetching spam messages:', error);
+            throw error;
+        }
+    }
+
+    async getTrashMails() {
+        try {
+            const accessToken = await this.getAccessToken();
+            console.log('Fetching trash emails...');
+
+            const config = {
+                method: 'get',
+                url: 'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=in:trash',
+                headers: { 
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            };
+
+            const response = await axios.request(config);
+            if (!response.data.messages || response.data.messages.length === 0) {
+                console.log("No trash messages found");
+                return [];
+            }
+
+            console.log(`Found ${response.data.messages.length} trash messages`);
+            return await this.fetchMessageDetails(response.data.messages, accessToken);
+        } catch (error) {
+            console.error('Error fetching trash messages:', error);
+            throw error;
+        }
+    }
+
+    async fetchMessageDetails(messages, accessToken) {
+        const messagePromises = messages.map(async (message) => {
+            const messageConfig = {
+                method: 'get',
+                url: `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}`,
+                headers: { 
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            };
+
+            try {
+                const messageResponse = await axios.request(messageConfig);
+                const messageData = messageResponse.data;
+                const headers = {};
+                messageData.payload.headers.forEach(header => {
+                    headers[header.name.toLowerCase()] = header.value;
+                });
+
+                let body = '';
+                if (messageData.payload.parts) {
+                    const textPart = messageData.payload.parts.find(part => part.mimeType === 'text/plain');
+                    if (textPart && textPart.body && textPart.body.data) {
+                        body = Buffer.from(textPart.body.data, 'base64').toString('utf-8');
+                    }
+                } else if (messageData.payload.body && messageData.payload.body.data) {
+                    body = Buffer.from(messageData.payload.body.data, 'base64').toString('utf-8');
+                }
+
+                return {
+                    id: message.id,
+                    subject: headers.subject || 'No Subject',
+                    from: headers.from || 'No Sender',
+                    to: headers.to || 'No Recipient',
+                    date: headers.date || 'No Date',
+                    body: body || 'No Content'
+                };
+            } catch (error) {
+                console.warn(`Failed to fetch message ${message.id}:`, error.message);
+                return null;
+            }
+        });
+
+        return (await Promise.all(messagePromises)).filter(message => message !== null);
+    }
 }
 module.exports = GmailAPI;

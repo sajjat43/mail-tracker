@@ -4,7 +4,7 @@ const GmailAPI = require('./gmailAPI');
 const cors = require('cors');
 
 const app = express();
-const port = 3000;
+const port = 5000;
 
 // CORS configuration
 const corsOptions = {
@@ -132,6 +132,132 @@ app.get('/important-emails', async (req, res) => {
         console.error('Error in /important-emails endpoint:', error);
         res.status(500).json({ 
             error: 'Failed to fetch important emails',
+            details: error.message
+        });
+    }
+});
+
+// API endpoint to get starred emails
+app.get('/starred-emails', async (req, res) => {
+    console.log('Received request for starred emails');
+    try {
+        console.log('Calling Gmail API to fetch starred emails...');
+        const starredEmails = await gmail.getStarredMails();
+        
+        // Ensure we always return an array
+        const response = Array.isArray(starredEmails) ? starredEmails : [];
+        
+        console.log(`Sending ${response.length} starred emails to client`);
+        res.json(response);
+    } catch (error) {
+        console.error('Error in /starred-emails endpoint:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch starred emails',
+            details: error.message
+        });
+    }
+});
+
+// API endpoint to get snoozed emails
+app.get('/snoozed-emails', async (req, res) => {
+    console.log('Received request for snoozed emails');
+    try {
+        console.log('Calling Gmail API to fetch snoozed emails...');
+        const snoozedEmails = await gmail.getSnoozedMails();
+        
+        // Ensure we always return an array
+        const response = Array.isArray(snoozedEmails) ? snoozedEmails : [];
+        
+        console.log(`Sending ${response.length} snoozed emails to client`);
+        res.json(response);
+    } catch (error) {
+        console.error('Error in /snoozed-emails endpoint:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch snoozed emails',
+            details: error.message
+        });
+    }
+});
+
+// API endpoint to get chat emails
+app.get('/chat-emails', async (req, res) => {
+    console.log('Received request for chat emails');
+    try {
+        console.log('Calling Gmail API to fetch chat emails...');
+        const chatEmails = await gmail.getChatMails();
+        
+        // Ensure we always return an array
+        const response = Array.isArray(chatEmails) ? chatEmails : [];
+        
+        console.log(`Sending ${response.length} chat emails to client`);
+        res.json(response);
+    } catch (error) {
+        console.error('Error in /chat-emails endpoint:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch chat emails',
+            details: error.message
+        });
+    }
+});
+
+// API endpoint to get scheduled emails
+app.get('/scheduled-emails', async (req, res) => {
+    console.log('Received request for scheduled emails');
+    try {
+        console.log('Calling Gmail API to fetch scheduled emails...');
+        const scheduledEmails = await gmail.getScheduledMails();
+        
+        // Ensure we always return an array
+        const response = Array.isArray(scheduledEmails) ? scheduledEmails : [];
+        
+        console.log(`Sending ${response.length} scheduled emails to client`);
+        res.json(response);
+    } catch (error) {
+        console.error('Error in /scheduled-emails endpoint:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch scheduled emails',
+            details: error.message
+        });
+    }
+});
+
+// API endpoint to get spam emails
+app.get('/spam-emails', async (req, res) => {
+    console.log('Received request for spam emails');
+    try {
+        console.log('Calling Gmail API to fetch spam emails...');
+        const spamEmails = await gmail.getSpamMails();
+        
+        // Ensure we always return an array
+        const response = Array.isArray(spamEmails) ? spamEmails : [];
+        
+        console.log(`Sending ${response.length} spam emails to client`);
+        res.json(response);
+    } catch (error) {
+        console.error('Error in /spam-emails endpoint:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch spam emails',
+            details: error.message
+        });
+    }
+});
+
+// API endpoint to get trash emails
+app.get('/trash-emails', async (req, res) => {
+    console.log('Received request for trash emails');
+    try {
+        console.log('Calling Gmail API to fetch trash emails...');
+        const trashEmails = await gmail.getTrashMails();
+        
+        // Ensure we always return an array
+        const response = Array.isArray(trashEmails) ? trashEmails : [];
+        
+        console.log(`Sending ${response.length} trash emails to client`);
+        res.json(response);
+    } catch (error) {
+        console.error('Error in /trash-emails endpoint:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch trash emails',
             details: error.message
         });
     }
